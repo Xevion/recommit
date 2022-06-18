@@ -72,8 +72,8 @@ class Gitlab(CommitSource):
         """Fetches events from GitLab's API given parameters"""
 
         params = {'action': action, 'target_type': target_type, 'sort': sort, 'page': page, 'per_page': per_page}
-        if before: params['before'] = before.strftime('%Y-%m-%d')
-        if after: params['after'] = after.strftime('%Y-%m-%d')
+        if before: params['before'] = before.isoformat()
+        if after: params['after'] = after.isoformat()
 
         params = {k: v for k, v in params.items() if v is not None}
         response = requests.get(self.url, params=params, headers=self.headers)
