@@ -1,4 +1,5 @@
 import logging
+import os.path
 from logging.handlers import TimedRotatingFileHandler
 from typing import List
 
@@ -8,9 +9,13 @@ from database import Database
 from models import Commit
 from sources import CommitSource, Gitlab
 
+CURRENT_DIR: str = os.path.dirname(os.path.abspath(__name__))
+LOGS_DIR: str = os.path.join(CURRENT_DIR, 'logs')
+if not os.path.exists(LOGS_DIR): os.makedirs(LOGS_DIR)
+
 logging.basicConfig(level=logging.WARNING, format='%(message)s', datefmt="[%X]", handlers=[
     RichHandler(),
-    TimedRotatingFileHandler(filename='recommit-log', backupCount=25)
+    TimedRotatingFileHandler(filename=os.path.join(LOGS_DIR, 'recommit.log'), backupCount=25)
 ])
 
 logger = logging.getLogger(__name__)
