@@ -12,10 +12,28 @@ from models import Commit
 class CommitSource(abc.ABC):
     """A simple abstract class for representing different commit sources generally."""
 
+    def __init__(self) -> None:
+        self.session = requests.Session()
+
     @abc.abstractmethod
     def fetch(self, check_function: Callable) -> List[Commit]:
         """Fetch commits from the source."""
         pass
+
+    @property
+    @abc.abstractmethod
+    def source_type(self) -> str:
+        """Specifies the source type for storage in a database."""
+        pass
+
+    @property
+    def name(self) -> str:
+        """Returns the name of this class."""
+        return type(self).__name__
+
+    def getLogger(self, name: Optional[str] = None) -> logging.Logger:
+        """Returns a new instance of a Logger"""
+        return logging.getLogger(name or self.name.lower())
 
 
 class Gitlab(CommitSource):
@@ -25,6 +43,9 @@ class Gitlab(CommitSource):
     API_KEY_CONSTANT: str = 'GITLAB_API_KEY'
 
     def __init__(self) -> None:
+        super().__init__()
+
+        self.logger: logging.Logger = self.getLogger()
         self.__api_key: str = config(self.API_KEY_CONSTANT)
         self.__username: str = config(self.USERNAME_CONSTANT)
 
