@@ -1,9 +1,10 @@
 import abc
-from datetime import date, datetime
-from pprint import pprint
+import logging
+from datetime import date
 from typing import Any, Callable, Dict, List, Optional
 
 import requests
+from dateutil import parser
 from decouple import config
 
 from models import Commit
@@ -33,7 +34,9 @@ class CommitSource(abc.ABC):
 
     def getLogger(self, name: Optional[str] = None) -> logging.Logger:
         """Returns a new instance of a Logger"""
-        return logging.getLogger(name or self.name.lower())
+        logger = logging.getLogger(name or self.name.lower())
+        logger.setLevel(logging.INFO)
+        return logger
 
 
 class Gitlab(CommitSource):
@@ -49,22 +52,32 @@ class Gitlab(CommitSource):
         self.__api_key: str = config(self.API_KEY_CONSTANT)
         self.__username: str = config(self.USERNAME_CONSTANT)
 
-    @property
-    def url(self) -> str:
-        """Returns the request URL from which events will be sourced."""
-        return f"https://gitlab.com/api/v4/users/{self.__username}/events"
+    def fetch(self, check_seen_function: Callable) -> List[Commit]:
+        """Automatically fetch all commits from the database."""
 
-    @property
-    def headers(self) -> Dict[str, str]:
-        """Returns the required headers for authoring API requests."""
-        return {
-            'PRIVATE-TOKEN': self.__api_key
-        }
+        page: int = 1
+        continue_fetching: bool = True
+        results: List[Commit] = []
 
-    def fetch(self, check_function: Callable) -> List[Commit]:
-        self.events(page=3)
+        self.logger.info('Beginning fetching process for GitLab source.')
 
-        return []
+        while continue_fetching:
+            continue_fetching = False
+
+            # Check all events in the list
+            for event in self.events(page=page, per_page=50):
+                if not check_seen_function(event['id']):
+                    continue_fetching = True
+
+                    results.append(Commit(
+                            id=event['id'],
+                            name='Private Contribution',
+                            timestamp=parser.isoparse(event['created_at'])
+                    ))
+
+            page += 1
+
+        return results
 
     def events(self, action: Optional[str] = None, target_type: Optional[str] = None, before: Optional[date] = None,
                after: Optional[date] = None, sort: Optional[str] = None, page: Optional[int] = None,
@@ -76,10 +89,25 @@ class Gitlab(CommitSource):
         if after: params['after'] = after.isoformat()
 
         params = {k: v for k, v in params.items() if v is not None}
-        response = requests.get(self.url, params=params, headers=self.headers)
-
-        pprint(params)
-
-        pprint(response.json())
+        request = requests.Request('GET', self.url, params=params, headers=self.headers)
+        prepped = self.session.prepare_request(request)
+        response = self.session.send(prepped)
 
         return response.json()
+
+    @property
+    def source_type(self) -> str:
+        """Provides the source type for this class in the database."""
+        return 'gitlab'
+
+    @property
+    def url(self) -> str:
+        """Returns the request URL from which events will be sourced."""
+        return f"https://gitlab.com/api/v4/users/{self.__username}/events"
+
+    @property
+    def headers(self) -> Dict[str, str]:
+        """Returns the required headers for authoring API requests."""
+        return {
+            'PRIVATE-TOKEN': self.__api_key
+        }
