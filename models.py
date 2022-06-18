@@ -12,3 +12,9 @@ class Commit:
     name: str
     # A timestamp
     timestamp: datetime
+
+    def __str__(self) -> str:
+        return '{name}({params})'.format(
+                name=type(self).__name__,
+                params=', '.join(f'{k}={v}' for k,v in self.__dict__.items())
+        )
