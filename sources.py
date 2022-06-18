@@ -1,4 +1,5 @@
 import abc
+import datetime
 import logging
 from datetime import date
 from typing import Any, Callable, Dict, List, Optional
@@ -66,14 +67,29 @@ class Gitlab(CommitSource):
 
             # Check all events in the list
             for event in self.events(page=page, per_page=50):
-                if not check_seen_function(event['id']):
+                if event['action_name'].startswith('pushed') and not check_seen_function(event['id']):
                     continue_fetching = True
+                    count: int = event['push_data']['commit_count']
 
-                    results.append(Commit(
-                            id=event['id'],
-                            name='Private Contribution',
-                            timestamp=parser.isoparse(event['created_at'])
-                    ))
+                    if count == 1:
+                        results.append(Commit(
+                                id=event['id'],
+                                project_id=event['project_id'],
+                                iteration=0,
+                                source=self.source_type,
+                                timestamp=parser.isoparse(event['created_at']),
+                                seen_timestamp=datetime.datetime.utcnow()
+                        ))
+                    else:
+                        for i in range(count):
+                            results.append(Commit(
+                                    id=f"{event['id']}-{i:02}",
+                                    project_id=event['project_id'],
+                                    iteration=0,
+                                    source=self.source_type,
+                                    timestamp=parser.isoparse(event['created_at']),
+                                    seen_timestamp=datetime.datetime.utcnow()
+                            ))
 
             page += 1
 
