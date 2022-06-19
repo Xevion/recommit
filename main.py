@@ -48,6 +48,10 @@ def main() -> None:
 
     logger.info(f'All done fetching. {len(commits)} commits found.')
 
+    if len(commits) == 0:
+        logger.info('0 commits found. Quitting early.')
+        return
+
     repository_path = config("REPOSITORY_PATH")
     repository_path = os.path.abspath(repository_path)
     if not os.path.exists(repository_path):
@@ -90,7 +94,6 @@ def main() -> None:
             continue
 
         logger.debug(f'Processed {commit.id} as {repo_commit.hexsha}')
-        break
 
     logger.info(f'Finished processing commits ({successful}/{len(commits)}).')
     logger.info('Pushing to origin...')
