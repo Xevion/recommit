@@ -30,10 +30,13 @@ class Database:
         cur.execute("""CREATE TABLE IF NOT EXISTS commits (
                             Id text primary key not null,
                             Source text not null,
+                            CommitHash text not null,
                             CommitTimestamp text not null,
                             SeenTimestamp text not null,
                             Iteration integer not null,
                             ProjectId integer not null);""")
+
+        self.conn.commit()
 
     def open(self) -> None:
         """Opens a connection to the database file."""
@@ -52,13 +55,14 @@ class Database:
             self.conn = None
             self.__is_closed = True
 
-    def add_commit(self, commit: Commit) -> None:
+    def add_commit(self, commit: Commit, commit_hash: str) -> None:
         """Inserts a commit into the database"""
 
         cur = self.conn.cursor()
-        cur.execute("""INSERT INTO commits (Id, Source, ProjectId, Iteration, CommitTimestamp, SeenTimestamp) VALUES (?, ?, ?, ?, ?, ?)""",
-                    (commit.id, commit.source, commit.project_id, commit.iteration,
+        cur.execute("""INSERT INTO commits (Id, Source, ProjectId, CommitHash, Iteration, CommitTimestamp, SeenTimestamp) VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    (commit.id, commit.source, commit.project_id, commit_hash, commit.iteration,
                      commit.timestamp.isoformat(), commit.seen_timestamp.isoformat()))
+        self.conn.commit()
 
     def check_exists(self, id: str, source: Optional[str] = None) -> bool:
         """Returns true if the commit in question exists."""
