@@ -8,6 +8,8 @@ rich = "*"
 requests = "*"
 python-decouple = "*"
 python-dateutil = "*"
+gitpython = "*"
+pytz = "*"
 
 [dev-packages]
 
