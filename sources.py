@@ -67,29 +67,37 @@ class Gitlab(CommitSource):
 
             # Check all events in the list
             for event in self.events(page=page, per_page=50):
-                if event['action_name'].startswith('pushed') and not check_seen_function(event['id']):
-                    continue_fetching = True
-                    count: int = event['push_data']['commit_count']
+                # Make sure this contribution event contains commits
+                if not event['action_name'].startswith('pushed'):
+                    continue
 
-                    if count == 1:
+                # Check that we haven't seen this commit before.
+                check_id: str = event['id'] if event['push_data']['commit_count'] == 1 else f"{event['id']}-00"
+                if check_seen_function(check_id):
+                    continue
+
+                continue_fetching = True
+                count: int = event['push_data']['commit_count']
+
+                if count == 1:
+                    results.append(Commit(
+                            id=str(event['id']),
+                            project_id=event['project_id'],
+                            iteration=0,
+                            source=self.source_type,
+                            timestamp=parser.isoparse(event['created_at']),
+                            seen_timestamp=datetime.datetime.utcnow()
+                    ))
+                else:
+                    for i in range(count):
                         results.append(Commit(
-                                id=event['id'],
+                                id=f"{event['id']}-{i:02}",
                                 project_id=event['project_id'],
-                                iteration=0,
+                                iteration=i,
                                 source=self.source_type,
                                 timestamp=parser.isoparse(event['created_at']),
                                 seen_timestamp=datetime.datetime.utcnow()
                         ))
-                    else:
-                        for i in range(count):
-                            results.append(Commit(
-                                    id=f"{event['id']}-{i:02}",
-                                    project_id=event['project_id'],
-                                    iteration=0,
-                                    source=self.source_type,
-                                    timestamp=parser.isoparse(event['created_at']),
-                                    seen_timestamp=datetime.datetime.utcnow()
-                            ))
 
             page += 1
 
@@ -107,6 +115,9 @@ class Gitlab(CommitSource):
         params = {k: v for k, v in params.items() if v is not None}
         request = requests.Request('GET', self.url, params=params, headers=self.headers)
         prepped = self.session.prepare_request(request)
+
+        self.logger.info(f'{prepped.method} {prepped.url}')
+
         response = self.session.send(prepped)
 
         return response.json()
